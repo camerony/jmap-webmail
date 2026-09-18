@@ -1,5 +1,7 @@
 {
   "login": {
+    "token_label": "JMAP API token",
+    "token_help": "Enter your personal JMAP API token. It is kept for this tab’s session and cleared when you sign out.",
     "title": "Correo Web",
     "username_label": "Correo electrónico",
     "username_placeholder": "usuario@ejemplo.com",
@@ -9,6 +11,7 @@
     "signing_in": "Iniciando sesión...",
     "loading": "Cargando...",
     "error": {
+      "invalid_token": "The API token is invalid or expired. Check the token and its permissions.",
       "invalid_credentials": "Correo electrónico o contraseña inválidos",
       "connection_failed": "No se pudo conectar con el servidor",
       "cors_blocked": "El servidor es accesible pero está bloqueando las solicitudes de origen cruzado. Verifique la configuración CORS de su servidor JMAP y permita este dominio.",

@@ -11,6 +11,7 @@ interface ConfigData {
   oauthScopes: string;
   oauthResource: string;
   oauthOnly: boolean;
+  tokenAuthEnabled: boolean;
   rememberMeEnabled: boolean;
 }
 
@@ -70,6 +71,7 @@ export function useConfig(): AppConfig {
     oauthScopes: configCache?.oauthScopes || '',
     oauthResource: configCache?.oauthResource || '',
     oauthOnly: configCache?.oauthOnly || false,
+    tokenAuthEnabled: configCache?.tokenAuthEnabled || false,
     rememberMeEnabled: configCache?.rememberMeEnabled || false,
     isLoading: !configCache,
     error: null,
@@ -87,6 +89,7 @@ export function useConfig(): AppConfig {
         oauthScopes: configCache.oauthScopes,
         oauthResource: configCache.oauthResource,
         oauthOnly: configCache.oauthOnly,
+        tokenAuthEnabled: configCache.tokenAuthEnabled,
         rememberMeEnabled: configCache.rememberMeEnabled,
         isLoading: false,
         error: null,
@@ -105,6 +108,7 @@ export function useConfig(): AppConfig {
           oauthScopes: data.oauthScopes,
           oauthResource: data.oauthResource,
           oauthOnly: data.oauthOnly,
+          tokenAuthEnabled: data.tokenAuthEnabled,
           rememberMeEnabled: data.rememberMeEnabled,
           isLoading: false,
           error: null,

@@ -19,12 +19,13 @@ interface AuthState {
   client: JMAPClient | null;
   identities: Identity[];
   primaryIdentity: Identity | null;
-  authMode: 'basic' | 'oauth';
+  authMode: 'basic' | 'oauth' | 'token';
   rememberMe: boolean;
   accessToken: string | null;
   tokenExpiresAt: number | null;
 
   login: (serverUrl: string, username: string, password: string, totp?: string, rememberMe?: boolean) => Promise<boolean>;
+  loginWithToken: (serverUrl: string, token: string) => Promise<boolean>;
   loginWithOAuth: (serverUrl: string, code: string, codeVerifier: string, redirectUri: string) => Promise<boolean>;
   refreshAccessToken: () => Promise<string | null>;
   logout: () => void;
@@ -188,6 +189,38 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      loginWithToken: async (serverUrl, token) => {
+        clearRefreshTimer();
+        set({ isLoading: true, error: null });
+        let client: JMAPClient | null = null;
+        try {
+          token = token.trim();
+          if (!token) throw new Error('Unauthorized');
+          client = JMAPClient.withBearer(serverUrl, token, '');
+          await client.connect();
+          const username = client.getUsername();
+          const { identities, primaryIdentity } = loadIdentities(await client.getIdentities(), username);
+          initializeFeatureStores(client);
+          // Keep the credential in this tab only, never in persisted localStorage.
+          try {
+            sessionStorage.setItem('jmap_token_session', JSON.stringify({ serverUrl, token }));
+          } catch { /* Memory-only login when browser storage is unavailable. */ }
+          set({ isAuthenticated: true, isLoading: false, serverUrl, username, client,
+            identities, primaryIdentity, authMode: 'token', rememberMe: false,
+            accessToken: token, tokenExpiresAt: null, error: null });
+          return true;
+        } catch (error) {
+          client?.disconnect();
+          try { sessionStorage.removeItem('jmap_token_session'); } catch { /* noop */ }
+          const kind = classifyLoginError(error);
+          set({ isLoading: false, isAuthenticated: false, client: null, accessToken: null,
+            tokenExpiresAt: null, rememberMe: false,
+            error: kind === 'invalid_credentials' || (error instanceof Error && error.message.includes('token may be expired'))
+              ? 'invalid_token' : kind });
+          return false;
+        }
+      },
+
       loginWithOAuth: async (serverUrl, code, codeVerifier, redirectUri) => {
         set({ isLoading: true, error: null });
 
@@ -242,6 +275,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       refreshAccessToken: async () => {
+        if (get().authMode === 'token') return null;
         if (refreshPromise) return refreshPromise;
 
         refreshPromise = (async () => {
@@ -300,6 +334,7 @@ export const useAuthStore = create<AuthState>()(
         });
 
         localStorage.removeItem('auth-storage');
+        try { sessionStorage.removeItem('jmap_token_session'); } catch { /* noop */ }
 
         useEmailStore.setState({
           emails: [],
@@ -347,6 +382,15 @@ export const useAuthStore = create<AuthState>()(
         const state = get();
 
         if (state.isAuthenticated && !state.client) {
+          if (state.authMode === 'token' && state.serverUrl) {
+            try {
+              const saved = JSON.parse(sessionStorage.getItem('jmap_token_session') || 'null');
+              if (saved?.serverUrl === state.serverUrl && typeof saved.token === 'string') {
+                if (await get().loginWithToken(state.serverUrl, saved.token)) return;
+              }
+            } catch { /* Invalid or unavailable session storage requires sign-in. */ }
+            try { sessionStorage.removeItem('jmap_token_session'); } catch { /* noop */ }
+          }
           if (state.authMode === 'oauth' && state.serverUrl) {
             set({ isLoading: true });
             try {
@@ -435,7 +479,7 @@ export const useAuthStore = create<AuthState>()(
         serverUrl: state.serverUrl,
         username: state.username,
         authMode: state.authMode,
-        isAuthenticated: (state.authMode === 'oauth' || state.rememberMe)
+        isAuthenticated: (state.authMode === 'oauth' || state.authMode === 'token' || state.rememberMe)
           ? state.isAuthenticated
           : undefined,
         rememberMe: state.rememberMe,

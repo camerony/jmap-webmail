@@ -25,6 +25,7 @@ export async function GET() {
     oauthScopes: process.env.OAUTH_SCOPES || DEFAULT_OAUTH_SCOPES,
     oauthResource: process.env.OAUTH_RESOURCE?.trim() || '',
     oauthOnly: process.env.OAUTH_ONLY === 'true',
+    tokenAuthEnabled: process.env.JMAP_TOKEN_AUTH_ENABLED === 'true',
     rememberMeEnabled: !!process.env.SESSION_SECRET,
   });
 }

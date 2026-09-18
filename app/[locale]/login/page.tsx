@@ -18,13 +18,14 @@ export default function LoginPage() {
   const router = useRouter();
   const t = useTranslations("login");
   const params = useParams();
-  const { login, isLoading, error, clearError, isAuthenticated } = useAuthStore();
-  const { appName, jmapServerUrl: serverUrl, oauthEnabled, oauthClientId, oauthIssuerUrl, oauthScopes, oauthResource, oauthOnly, rememberMeEnabled, isLoading: configLoading, error: configError } = useConfig();
+  const { login, loginWithToken, isLoading, error, clearError, isAuthenticated } = useAuthStore();
+  const { appName, jmapServerUrl: serverUrl, oauthEnabled, oauthClientId, oauthIssuerUrl, oauthScopes, oauthResource, oauthOnly, tokenAuthEnabled, rememberMeEnabled, isLoading: configLoading, error: configError } = useConfig();
 
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
+  const [apiToken, setApiToken] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [showTotpField, setShowTotpField] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -93,7 +94,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     clearError();
-  }, [formData, clearError]);
+  }, [formData, apiToken, clearError]);
 
   useEffect(() => {
     if (!serverUrl) return;
@@ -296,6 +297,13 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (tokenAuthEnabled) {
+      if (await loginWithToken(serverUrl, apiToken)) {
+        setApiToken('');
+        router.push('/');
+      }
+      return;
+    }
     if (oauthOnly) return;
 
     const success = await login(
@@ -371,7 +379,28 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className={cn("space-y-4", shakeError && "animate-shake")}
         >
-          {!oauthOnly && (<>
+          {tokenAuthEnabled && (
+            <fieldset disabled={isLoading} className="space-y-4">
+              <label htmlFor="jmap-token" className="block text-sm font-medium">{t("token_label")}</label>
+              <Input
+                id="jmap-token"
+                type="password"
+                value={apiToken}
+                onChange={(event) => setApiToken(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                required
+                autoFocus
+                aria-describedby="token-help"
+                className="h-12 px-4"
+              />
+              <p id="token-help" className="text-sm text-muted-foreground">{t("token_help")}</p>
+              <Button type="submit" className="w-full h-12" disabled={isLoading || !apiToken.trim()}>
+                {isLoading ? t("signing_in") : t("sign_in")}
+              </Button>
+            </fieldset>
+          )}
+          {!oauthOnly && !tokenAuthEnabled && (<>
           <fieldset disabled={isLoading} className="space-y-4">
             <div className="relative">
               <Input
@@ -516,7 +545,7 @@ export default function LoginPage() {
 
           {oauthMetadata && (
             <>
-              {!oauthOnly && (
+              {(!oauthOnly || tokenAuthEnabled) && (
                 <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t border-border" />

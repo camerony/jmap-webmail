@@ -208,7 +208,20 @@ Endpoints are auto-discovered via `.well-known/oauth-authorization-server` or `.
 
 #### Using Fastmail as the backend
 
-Fastmail's JMAP endpoint requires bearer authentication; the password form and app passwords cannot be used here. Use OAuth-only login with this configuration:
+Fastmail's JMAP endpoint requires bearer authentication; the password form and app passwords cannot be used here. For personal use, create a JMAP API token in Fastmail's **Settings → Privacy & Security → Manage API tokens**, with the permissions needed for your mail, and configure:
+
+```env
+JMAP_SERVER_URL=https://api.fastmail.com
+JMAP_TOKEN_AUTH_ENABLED=true
+OAUTH_ENABLED=false
+OAUTH_ONLY=false
+```
+
+Each user enters their own token on the sign-in page. Token mode replaces the password form; OAuth can also be enabled separately. Tokens are kept in browser session storage for reloads in that tab and removed on sign-out. They are not stored in localStorage or server environment variables, and they do not use OAuth refresh. If browser session storage is unavailable, sign-in lasts only until the page reloads. Non-English locales currently use English copy for the token fields.
+
+In Dokploy, save these settings in the Environment tab and redeploy. Reload the browser page to fetch the new login configuration.
+
+For OAuth with a registered client, use:
 
 ```env
 JMAP_SERVER_URL=https://api.fastmail.com
@@ -222,7 +235,7 @@ OAUTH_RESOURCE=https://api.fastmail.com/jmap/session
 
 Use the bare origin for `JMAP_SERVER_URL`: the app appends `/.well-known/jmap`, which Fastmail redirects to its session endpoint. Using the session URL as the server URL produces an invalid discovery path. Omitting the resource indicator can cause `error=invalid_target` at consent.
 
-Fastmail's [live OAuth metadata](https://api.fastmail.com/.well-known/oauth-authorization-server) advertises dynamic registration and public clients (`token_endpoint_auth_method=none`). Register a client once, using the actual callback URL for your deployment:
+Fastmail's [live OAuth metadata](https://api.fastmail.com/.well-known/oauth-authorization-server) advertises dynamic registration and public clients (`token_endpoint_auth_method=none`). Localhost registration has worked, but public HTTPS callback registration was rejected in our deployment with `invalid_redirect_uri`. For a production OAuth client, contact Fastmail through their developer guide; do not assume dynamic registration supports arbitrary public domains. This example registers a local development client:
 
 ```bash
 curl -sS -X POST https://api.fastmail.com/oauth/register \
@@ -238,7 +251,7 @@ curl -sS -X POST https://api.fastmail.com/oauth/register \
   }'
 ```
 
-Save the returned `client_id` as `OAUTH_CLIENT_ID` and leave `OAUTH_CLIENT_SECRET` unset. For production, replace the localhost callback with your real HTTPS domain. Callback paths are locale-prefixed (`/<locale>/auth/callback`); register each locale you use. Reserved placeholder domains such as `example.com` are not suitable registration targets. Fastmail supports arbitrary ports for registered localhost callbacks.
+Save the returned `client_id` as `OAUTH_CLIENT_ID` and leave `OAUTH_CLIENT_SECRET` unset. For production, obtain a registration that explicitly includes your real HTTPS callback URL. Callback paths are locale-prefixed (`/<locale>/auth/callback`); register each locale you use. Reserved placeholder domains such as `example.com` are not suitable registration targets. Fastmail supports arbitrary ports for registered localhost callbacks.
 
 The [public developer guide](https://www.fastmail.com/dev/) still describes manual registration and older scope names; the configuration above follows the live discovery metadata. Users authorize their own accounts; only the client registration is shared. Restart the app after changing environment variables.
 

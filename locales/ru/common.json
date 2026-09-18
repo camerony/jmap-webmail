@@ -1,5 +1,7 @@
 {
   "login": {
+    "token_label": "JMAP API token",
+    "token_help": "Enter your personal JMAP API token. It is kept for this tab’s session and cleared when you sign out.",
     "title": "Почта",
     "username_label": "Почта",
     "username_placeholder": "user@example.com",
@@ -9,6 +11,7 @@
     "signing_in": "Вход в систему…",
     "loading": "Загрузка…",
     "error": {
+      "invalid_token": "The API token is invalid or expired. Check the token and its permissions.",
       "invalid_credentials": "Неверный адрес почты или пароль. Пожалуйста, проверьте свои учётные данные и повторите попытку.",
       "connection_failed": "Невозможно связаться с сервером. Проверьте подключение к Интернету и повторите попытку.",
       "cors_blocked": "Сервер доступен, но блокирует запросы между источниками. Проверьте настройки CORS вашего сервера JMAP и разрешите этот домен.",
