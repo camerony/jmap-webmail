@@ -199,9 +199,48 @@ OAUTH_ENABLED=true
 OAUTH_CLIENT_ID=webmail
 OAUTH_CLIENT_SECRET=              # optional, for confidential clients
 OAUTH_ISSUER_URL=                 # optional, for external IdPs (Keycloak, Authentik)
+OAUTH_SCOPES=                     # optional, defaults to "openid email profile"
 ```
 
 Endpoints are auto-discovered via `.well-known/oauth-authorization-server` or `.well-known/openid-configuration`. If your JMAP server delegates auth to an external IdP, set `OAUTH_ISSUER_URL` to the IdP's base URL (e.g., `https://keycloak.example.com/realms/mail`).
+
+`OAUTH_SCOPES` is a space-separated list requested on login, defaulting to `openid email profile`. Set `OAUTH_RESOURCE` when the provider requires an RFC 8707 resource indicator; it is sent on authorization, code exchange, and refresh requests.
+
+#### Using Fastmail as the backend
+
+Fastmail's JMAP endpoint requires bearer authentication; the password form and app passwords cannot be used here. Use OAuth-only login with this configuration:
+
+```env
+JMAP_SERVER_URL=https://api.fastmail.com
+OAUTH_ENABLED=true
+OAUTH_ONLY=true
+OAUTH_CLIENT_ID=<registered client id>
+OAUTH_ISSUER_URL=https://api.fastmail.com
+OAUTH_SCOPES=openid email profile offline_access urn:ietf:params:oauth:scope:mail urn:ietf:params:oauth:scope:contacts urn:ietf:params:oauth:scope:calendars
+OAUTH_RESOURCE=https://api.fastmail.com/jmap/session
+```
+
+Use the bare origin for `JMAP_SERVER_URL`: the app appends `/.well-known/jmap`, which Fastmail redirects to its session endpoint. Using the session URL as the server URL produces an invalid discovery path. Omitting the resource indicator can cause `error=invalid_target` at consent.
+
+Fastmail's [live OAuth metadata](https://api.fastmail.com/.well-known/oauth-authorization-server) advertises dynamic registration and public clients (`token_endpoint_auth_method=none`). Register a client once, using the actual callback URL for your deployment:
+
+```bash
+curl -sS -X POST https://api.fastmail.com/oauth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "client_name": "JMAP Webmail",
+    "redirect_uris": ["http://localhost:3000/en/auth/callback"],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "token_endpoint_auth_method": "none",
+    "application_type": "web",
+    "scope": "openid email profile offline_access urn:ietf:params:oauth:scope:mail urn:ietf:params:oauth:scope:contacts urn:ietf:params:oauth:scope:calendars"
+  }'
+```
+
+Save the returned `client_id` as `OAUTH_CLIENT_ID` and leave `OAUTH_CLIENT_SECRET` unset. For production, replace the localhost callback with your real HTTPS domain. Callback paths are locale-prefixed (`/<locale>/auth/callback`); register each locale you use. Reserved placeholder domains such as `example.com` are not suitable registration targets. Fastmail supports arbitrary ports for registered localhost callbacks.
+
+The [public developer guide](https://www.fastmail.com/dev/) still describes manual registration and older scope names; the configuration above follows the live discovery metadata. Users authorize their own accounts; only the client registration is shared. Restart the app after changing environment variables.
 
 To disable Basic Auth:
 

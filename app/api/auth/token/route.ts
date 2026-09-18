@@ -45,6 +45,12 @@ async function getMetadata(): Promise<import('@/lib/oauth/discovery').OAuthMetad
 function buildOAuthParams(base: Record<string, string>): URLSearchParams {
   const { clientId } = getRequiredConfig();
   const params = new URLSearchParams({ ...base, client_id: clientId });
+  // RFC 8707: keep the requested audience on code exchange and refresh.
+  // Revocation requests do not use resource indicators.
+  const resource = process.env.OAUTH_RESOURCE?.trim();
+  if (base.grant_type && resource) {
+    params.set('resource', resource);
+  }
   if (CLIENT_SECRET) {
     params.set('client_secret', CLIENT_SECRET);
   }

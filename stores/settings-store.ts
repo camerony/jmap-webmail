@@ -228,6 +228,19 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'settings-storage',
       version: 1,
+      migrate: (persistedState) => {
+        // Settings added over time can use defaults; retain known preferences
+        // without allowing stored keys to replace the store's actions.
+        const settings = { ...DEFAULT_SETTINGS };
+        if (persistedState && typeof persistedState === 'object' && !Array.isArray(persistedState)) {
+          for (const key of Object.keys(DEFAULT_SETTINGS)) {
+            if (Object.prototype.hasOwnProperty.call(persistedState, key)) {
+              Object.assign(settings, { [key]: (persistedState as Record<string, unknown>)[key] });
+            }
+          }
+        }
+        return settings;
+      },
     }
   )
 );

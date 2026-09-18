@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() },
@@ -40,6 +40,8 @@ async function loadRoute() {
 
 describe('OIDC token route', () => {
   beforeEach(() => {
+    vi.stubEnv('OAUTH_RESOURCE', '');
+    vi.stubEnv('OAUTH_CLIENT_SECRET', '');
     process.env.OAUTH_CLIENT_ID = 'webmail-client';
     process.env.JMAP_SERVER_URL = 'https://mail.example';
     cookieStore.jar.clear();
@@ -60,6 +62,44 @@ describe('OIDC token route', () => {
         text: async () => '',
       })),
     );
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it.each(['authorization_code', 'refresh_token'])('sends the configured resource for %s', async (grantType) => {
+    vi.stubEnv('OAUTH_RESOURCE', 'https://api.fastmail.com/jmap/session');
+    const { POST, PUT } = await loadRoute();
+    cookieStore.jar.set('jmap_rt', 'rt-1');
+    const response = grantType === 'authorization_code'
+      ? await POST({ json: async () => ({ code: 'c', code_verifier: 'v', redirect_uri: 'https://app/en/auth/callback' }) } as never)
+      : await PUT();
+
+    expect(response.status).toBe(200);
+    const params = new URLSearchParams(vi.mocked(fetch).mock.calls[0][1]?.body as string);
+    expect(params.get('grant_type')).toBe(grantType);
+    expect(params.get('resource')).toBe('https://api.fastmail.com/jmap/session');
+    expect(params.get('client_id')).toBe('webmail-client');
+    expect(params.has('client_secret')).toBe(false);
+  });
+
+  it('omits the resource when unconfigured', async () => {
+    const { PUT } = await loadRoute();
+    cookieStore.jar.set('jmap_rt', 'rt-1');
+    await PUT();
+    const params = new URLSearchParams(vi.mocked(fetch).mock.calls[0][1]?.body as string);
+    expect(params.has('resource')).toBe(false);
+  });
+
+  it('does not send the resource on revocation', async () => {
+    vi.stubEnv('OAUTH_RESOURCE', 'https://api.fastmail.com/jmap/session');
+    const { DELETE } = await loadRoute();
+    cookieStore.jar.set('jmap_rt', 'rt-1');
+    await DELETE();
+    const params = new URLSearchParams(vi.mocked(fetch).mock.calls[0][1]?.body as string);
+    expect(params.get('token')).toBe('rt-1');
+    expect(params.has('resource')).toBe(false);
   });
 
   it('stores the id_token in a cookie at code exchange', async () => {

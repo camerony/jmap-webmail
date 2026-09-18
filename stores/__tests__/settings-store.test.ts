@@ -15,6 +15,25 @@ describe('settings-store unified inbox', () => {
     expect(getStore().showUnifiedInbox).toBe(true);
   });
 
+  it('migrates older saved preferences and supplies defaults for newer settings', async () => {
+    localStorage.setItem('settings-storage', JSON.stringify({
+      version: 0,
+      state: { fontSize: 'large', timeFormat: '12h', trustedSenders: ['friend@example.com'], updateSetting: 'obsolete' },
+    }));
+
+    await useSettingsStore.persist.rehydrate();
+
+    expect(getStore().fontSize).toBe('large');
+    expect(getStore().timeFormat).toBe('12h');
+    expect(getStore().trustedSenders).toEqual(['friend@example.com']);
+    expect(getStore().showUnifiedInbox).toBe(true);
+    expect(getStore().domainFaviconAvatars).toBe(false);
+    expect(typeof getStore().updateSetting).toBe('function');
+    const persisted = JSON.parse(localStorage.getItem('settings-storage')!);
+    expect(persisted.version).toBe(1);
+    expect(persisted.state.fontSize).toBe('large');
+  });
+
   it('defaults unifiedInboxExcludedAccounts to an empty array', () => {
     expect(getStore().unifiedInboxExcludedAccounts).toEqual([]);
   });
