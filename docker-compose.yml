@@ -1,10 +1,10 @@
 services:
   webmail:
-    image: ghcr.io/root-fr/jmap-webmail:latest
-    ports:
-      - "3000:3000"
+    build: .
+    expose:
+      - "3000"
     env_file:
-      - .env.local
+      - .env
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s

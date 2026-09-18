@@ -282,15 +282,17 @@ docker run -p 3000:3000 -e JMAP_SERVER_URL=https://mail.example.com rootfr/jmap-
 # From GHCR
 docker run -p 3000:3000 -e JMAP_SERVER_URL=https://mail.example.com ghcr.io/root-fr/jmap-webmail:latest
 
-# With docker compose
-cp .env.example .env.local
-# Edit .env.local with your JMAP_SERVER_URL
-docker compose up -d
+# With docker compose (builds this checkout; reverse proxy required)
+cp .env.example .env
+# Edit .env with your JMAP_SERVER_URL and OAuth configuration
+docker compose up -d --build
 
 # Build from source
 docker build -t jmap-webmail .
 docker run -p 3000:3000 -e JMAP_SERVER_URL=https://mail.example.com jmap-webmail
 ```
+
+For Dokploy, select your fork and branch, use Docker Compose mode with `docker-compose.yml`, and enter your configuration in the Environment tab. Dokploy writes these values to `.env`, which Compose loads into the container. Add an HTTPS domain targeting service `webmail` on container port `3000`, then deploy. Register the matching locale-prefixed OAuth callback URL with Fastmail. The Compose service exposes port 3000 internally; for local access without a reverse proxy, add a `ports: ["3000:3000"]` mapping.
 
 ## Keyboard shortcuts
 
